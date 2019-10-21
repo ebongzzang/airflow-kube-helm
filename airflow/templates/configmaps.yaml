@@ -54,39 +54,6 @@ data:
   init-dags.sh: |
 {{ tpl (required "A valid .Values.airflow.init_dags entry required!" .Values.airflow.dags.persistence.init_dags) . | indent 4 }}
 ---
-{{- end }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ template "airflow.fullname" . }}-nginx
-  labels:
-    app: {{ template "airflow.name" . }}
-    chart: {{ template "airflow.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
-data:
-  nginx.conf: |
-    server {
-      listen 80;
-      server_name _;
-      # if ($http_x_forwarded_proto = "http") {
-      #     return 301 https://$host$request_uri;
-      # }
-      location / {
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_redirect off;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-      }
-      location /health {
-        return 200 "healthy\n";
-        add_header Content-Type text/plain;
-      }
-    }
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -103,7 +70,7 @@ data:
     {{- if .Values.airflow.dags.persistence.enabled }}
     dags_folder = /usr/local/airflow/dags
     {{- else }}
-    dags_folder = /usr/local/airflow/dags/repo/{{ .Values.airflow.dags.git.subpath }}
+    dags_folder = /usr/local/airflow/dags/zipmap_dags
     {{- end }}
     base_log_folder = /usr/local/airflow/logs
     executor = KubernetesExecutor
@@ -117,6 +84,7 @@ data:
     rbac = {{ .Values.airflow.rbac.enabled }}
 
     [kubernetes]
+    worker_service_account_name = {{.Release.Namespace}}:{{ template "airflow.fullname" . }}-cluster-access
     airflow_configmap = {{ template "airflow.fullname" . }}-config
     worker_container_repository = {{ .Values.airflow.image.repository }}
     worker_container_tag = {{ .Values.airflow.image.tag }}
